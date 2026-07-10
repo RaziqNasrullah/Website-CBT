@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Environment variables (berisi kredensial asli - jangan pernah di-commit)
+.env
+.env.*
+!.env.example
+
+# Lock file (sengaja tidak diupload, sesuai kebutuhan repo saat ini)
+package-lock.json
+
+# Database
+*.db
+*.db-journal
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log*
+*.log
+
+# Editor / IDE
+.vscode/
+.idea/
