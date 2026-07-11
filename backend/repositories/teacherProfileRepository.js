@@ -1,13 +1,11 @@
 /**
  * Teacher Profile Repository
- * Data Access Layer - query mentah ke tabel teacher_profiles,
- * teacher_subjects, dan profile_requests.
+ * Data Access Layer - teacher_profiles, teacher_subjects, profile_requests.
+ * Mendukung photo_url opsional.
  */
 const pool = require('../config/db');
 
 const teacherProfileRepository = {
-  // ---- Teacher Profiles ----
-
   async findByUserId(userId) {
     const [rows] = await pool.execute(
       `SELECT tp.*, u.name, u.username, u.profile_completed
@@ -51,16 +49,29 @@ const teacherProfileRepository = {
 
   async update(id, { full_name, nomor_induk, address, phone }) {
     await pool.execute(
-      `UPDATE teacher_profiles
-       SET full_name = ?, nomor_induk = ?, address = ?, phone = ?
-       WHERE id = ?`,
+      `UPDATE teacher_profiles SET full_name = ?, nomor_induk = ?, address = ?, phone = ? WHERE id = ?`,
       [full_name, nomor_induk, address, phone, id]
     );
     return this.findById(id);
   },
 
-  // ---- Teacher Subjects (mata kuliah yang diajar) ----
+  async updatePhotoUrl(userId, photoUrl) {
+    await pool.execute(
+      'UPDATE teacher_profiles SET photo_url = ? WHERE user_id = ?',
+      [photoUrl, userId]
+    );
+    return this.findByUserId(userId);
+  },
 
+  async clearPhotoUrl(userId) {
+    await pool.execute(
+      'UPDATE teacher_profiles SET photo_url = NULL WHERE user_id = ?',
+      [userId]
+    );
+    return this.findByUserId(userId);
+  },
+
+  // ---- Teacher Subjects ----
   async findSubjectsByProfile(teacherProfileId) {
     const [rows] = await pool.execute(
       `SELECT s.id, s.subject_name
@@ -94,7 +105,6 @@ const teacherProfileRepository = {
   },
 
   // ---- Profile Requests ----
-
   async findRequestByUserId(userId) {
     const [rows] = await pool.execute(
       `SELECT pr.*, u.name, u.username
