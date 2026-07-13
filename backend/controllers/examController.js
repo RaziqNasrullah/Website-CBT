@@ -4,6 +4,7 @@
  */
 const examService = require('../services/examService');
 const asyncHandler = require('../utils/asyncHandler');
+const AppError = require('../utils/AppError');
 
 const examController = {
   // ---- Subjects ----
@@ -108,6 +109,25 @@ const examController = {
   deleteQuestion: asyncHandler(async (req, res) => {
     const result = await examService.deleteQuestion(req.params.questionId, req.user.id);
     res.status(200).json({ success: true, ...result });
+  }),
+
+  // ---- Question Image ----
+  // POST /api/questions/:questionId/image — multipart, field: image
+  uploadQuestionImage: asyncHandler(async (req, res) => {
+    if (!req.file) throw new AppError('File gambar tidak ditemukan.', 400);
+    const imageUrl = `/uploads/questions/${req.file.filename}`;
+    const question = await examService.setQuestionImage(req.params.questionId, req.user.id, imageUrl);
+    res.status(200).json({
+      success: true,
+      message: 'Gambar soal berhasil diunggah.',
+      data: { image_url: imageUrl, question },
+    });
+  }),
+
+  // DELETE /api/questions/:questionId/image
+  deleteQuestionImage: asyncHandler(async (req, res) => {
+    await examService.removeQuestionImage(req.params.questionId, req.user.id);
+    res.status(200).json({ success: true, message: 'Gambar soal berhasil dihapus.' });
   }),
 };
 

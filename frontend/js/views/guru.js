@@ -1,8 +1,16 @@
 import { app } from '../core/dom.js';
-import { api } from '../core/api.js';
+import { api, apiUpload } from '../core/api.js';
 import { toast, escapeHtml, fmtScore } from '../core/utils.js';
 import { shell, attachLogout } from '../layout/shell.js';
 import { navigate } from '../core/router.js';
+import { Store } from '../core/store.js';
+
+/* ---- helpers ---- */
+function initials(name) {
+  if (!name) return '?';
+  const p = name.trim().split(/\s+/);
+  return p.length === 1 ? p[0][0].toUpperCase() : (p[0][0] + p[p.length - 1][0]).toUpperCase();
+}
 
 /* ---- Dashboard utama ---- */
 export async function renderGuruDashboard() {
@@ -22,27 +30,53 @@ export async function renderGuruDashboard() {
   }
 
   const content = document.getElementById('guru-content');
+  const displayName = profile?.full_name || Store.user?.name || '';
+  const hasPhoto = !!profile?.photo_url;
+
   content.innerHTML = `
     <div class="space-y-8">
 
       <!-- INFO PROFIL -->
       <section class="card p-5">
-        <div class="flex items-start justify-between gap-4 flex-wrap">
-          <div class="space-y-1">
-            <p class="text-xs text-slate-400 uppercase tracking-wide">Profil Anda</p>
-            <p class="text-lg font-bold">${escapeHtml(profile?.full_name || '—')}</p>
-            <p class="text-sm text-slate-500">
-              Nomor Induk: <span class="font-medium">${escapeHtml(profile?.nomor_induk || '—')}</span>
-            </p>
-            <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
-              <span>📞 ${escapeHtml(profile?.phone || '—')}</span>
-              <span>📍 ${escapeHtml(profile?.address || '—')}</span>
+        <div class="flex items-start gap-5 flex-wrap justify-between">
+          <div class="flex items-start gap-5 flex-wrap">
+            <!-- Avatar / Foto -->
+            <div class="relative shrink-0">
+              <div id="avatar-container" class="w-20 h-20 rounded-xl overflow-hidden border-2 border-slate-200 bg-slate-100 flex items-center justify-center">
+                ${hasPhoto
+                  ? `<img id="profile-img" src="${profile.photo_url}" alt="Foto profil" class="w-full h-full object-cover">`
+                  : `<span class="text-2xl font-bold text-slate-600">${initials(displayName)}</span>`}
+              </div>
+              <!-- Tombol ganti foto -->
+              <label class="absolute -bottom-1 -right-1 w-7 h-7 bg-slate-900 rounded-full flex items-center justify-center cursor-pointer hover:bg-slate-700 transition-colors" title="Ganti foto profil">
+                <input type="file" id="photo-file-input" accept="image/*" class="sr-only">
+                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+              </label>
+              ${hasPhoto
+                ? `<button id="btn-remove-photo" class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold hover:bg-red-600 transition-colors" title="Hapus foto">×</button>`
+                : ''}
             </div>
-            ${profile?.subjects?.length
-              ? `<div class="flex flex-wrap gap-1 mt-1">
-                  ${profile.subjects.map(s => `<span class="badge border-slate-300 text-slate-600">${escapeHtml(s.subject_name)}</span>`).join('')}
-                </div>`
-              : '<p class="text-xs text-slate-400 mt-1">Belum ada mata kuliah yang ditetapkan.</p>'}
+            <!-- Info profil -->
+            <div class="space-y-1">
+              <p class="text-xs text-slate-400 uppercase tracking-wide">Profil Anda</p>
+              <p class="text-lg font-bold">${escapeHtml(displayName || '—')}</p>
+              <p class="text-sm text-slate-500">
+                Nomor Induk: <span class="font-medium">${escapeHtml(profile?.nomor_induk || '—')}</span>
+              </p>
+              <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
+                <span>📞 ${escapeHtml(profile?.phone || '—')}</span>
+                <span>📍 ${escapeHtml(profile?.address || '—')}</span>
+              </div>
+              ${profile?.subjects?.length
+                ? `<div class="flex flex-wrap gap-1 mt-1">
+                    ${profile.subjects.map(s => `<span class="badge border-slate-300 text-slate-600">${escapeHtml(s.subject_name)}</span>`).join('')}
+                  </div>`
+                : '<p class="text-xs text-slate-400 mt-1">Belum ada mata kuliah yang ditetapkan.</p>'}
+            </div>
           </div>
           <button id="btn-edit-profile" class="btn btn-outline shrink-0">Edit Profil</button>
         </div>
@@ -170,6 +204,26 @@ export async function renderGuruDashboard() {
       </section>
     </div>
   `;
+
+  // Upload / hapus foto profil
+  document.getElementById('photo-file-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      await apiUpload('/profile/photo', 'photo', file);
+      toast('Foto profil diperbarui.', 'success');
+      renderGuruDashboard();
+    } catch (err) { toast(err.message, 'error'); }
+  });
+
+  document.getElementById('btn-remove-photo')?.addEventListener('click', async () => {
+    if (!confirm('Hapus foto profil?')) return;
+    try {
+      await api('/profile/photo', { method: 'DELETE' });
+      toast('Foto profil dihapus.', 'success');
+      renderGuruDashboard();
+    } catch (err) { toast(err.message, 'error'); }
+  });
 
   // Toggle edit profil
   document.getElementById('btn-edit-profile').addEventListener('click', () => {
@@ -397,6 +451,16 @@ export async function renderExamBuilder(examId) {
             <input class="input" type="number" name="score_weight" value="1" min="0.1" step="0.1" required>
           </div>
         </div>
+        <!-- Gambar soal -->
+        <div>
+          <label class="label">Gambar Soal <span class="font-normal text-slate-400">(opsional)</span></label>
+          <input type="file" accept="image/*" id="new-question-image" name="question_image"
+            class="block text-sm text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:border file:border-slate-300 file:text-xs file:font-semibold file:bg-slate-50 file:text-slate-700 hover:file:bg-slate-100 cursor-pointer w-full">
+          <div id="new-question-preview" class="hidden mt-2">
+            <img id="new-question-preview-img" class="max-h-28 rounded-lg border border-slate-200 object-contain">
+            <button type="button" id="btn-clear-image" class="text-xs text-red-500 mt-1 hover:underline">Batalkan gambar</button>
+          </div>
+        </div>
         <div class="space-y-2">
           ${[0,1,2,3].map(i => `
             <div class="flex items-center gap-2">
@@ -410,49 +474,139 @@ export async function renderExamBuilder(examId) {
     </div>
 
     <h2 class="font-bold mb-3">Daftar Soal (${questions.length})</h2>
-    <div class="space-y-3">
+    <div class="space-y-3" id="question-list">
       ${questions.length === 0
         ? '<p class="text-sm text-slate-400">Belum ada soal.</p>'
-        : questions.map((q, idx) => `
-          <div class="card p-4">
-            <div class="flex justify-between items-start gap-3">
-              <p class="font-medium text-sm flex-1">${idx+1}. ${escapeHtml(q.question_text)} <span class="text-xs text-slate-400">(bobot ${q.score_weight})</span></p>
-              <button class="btn btn-danger !py-1 !px-2.5 !text-xs shrink-0" data-delete-q="${q.id}">Hapus</button>
-            </div>
-            <ul class="mt-2 text-sm space-y-1">
-              ${q.options.map(o => `
-                <li class="flex items-center gap-2 ${o.is_correct ? 'text-emerald-700 font-semibold' : 'text-slate-600'}">
-                  <span class="w-4 h-4 border ${o.is_correct ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300'} inline-block"></span>
-                  ${escapeHtml(o.option_text)}
-                </li>`).join('')}
-            </ul>
-          </div>`).join('')}
+        : questions.map((q, idx) => renderQuestionCard(q, idx)).join('')}
     </div>
   `;
 
+  // Preview gambar baru sebelum submit
+  const imgInput = document.getElementById('new-question-image');
+  const previewWrap = document.getElementById('new-question-preview');
+  const previewImg = document.getElementById('new-question-preview-img');
+  imgInput.addEventListener('change', () => {
+    const file = imgInput.files[0];
+    if (file) {
+      previewImg.src = URL.createObjectURL(file);
+      previewWrap.classList.remove('hidden');
+    }
+  });
+  document.getElementById('btn-clear-image').addEventListener('click', () => {
+    imgInput.value = '';
+    previewImg.src = '';
+    previewWrap.classList.add('hidden');
+  });
+
+  // Submit soal baru
   document.getElementById('add-question-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
     const correctIdx = Number(fd.get('correct_option'));
     const options = [0,1,2,3].map(i => ({ option_text: fd.get(`option_${i}`), is_correct: i===correctIdx }));
+    const submitBtn = e.target.querySelector('button[type=submit]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Menyimpan...';
     try {
-      await api(`/exams/${examId}/questions`, {
+      const question = await api(`/exams/${examId}/questions`, {
         method: 'POST',
         body: { question_text: fd.get('question_text'), score_weight: Number(fd.get('score_weight')), options },
       });
+      // Upload gambar jika ada
+      const imageFile = imgInput.files[0];
+      if (imageFile && question?.id) {
+        await apiUpload(`/questions/${question.id}/image`, 'image', imageFile);
+      }
       toast('Soal ditambahkan.', 'success');
+      renderExamBuilder(examId);
+    } catch (err) {
+      toast(err.message, 'error');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Tambah Soal';
+    }
+  });
+
+  // Hapus soal & upload/hapus gambar per soal (event delegation)
+  document.getElementById('question-list').addEventListener('click', async (e) => {
+    // Hapus soal
+    const delQ = e.target.closest('[data-delete-q]');
+    if (delQ) {
+      if (!confirm('Hapus soal ini?')) return;
+      try {
+        await api(`/questions/${delQ.dataset.deleteQ}`, { method: 'DELETE' });
+        toast('Soal dihapus.', 'success');
+        renderExamBuilder(examId);
+      } catch (err) { toast(err.message, 'error'); }
+      return;
+    }
+    // Hapus gambar soal
+    const delImg = e.target.closest('[data-delete-q-img]');
+    if (delImg) {
+      if (!confirm('Hapus gambar soal ini?')) return;
+      try {
+        await api(`/questions/${delImg.dataset.deleteQImg}/image`, { method: 'DELETE' });
+        toast('Gambar dihapus.', 'success');
+        renderExamBuilder(examId);
+      } catch (err) { toast(err.message, 'error'); }
+      return;
+    }
+  });
+
+  // Upload gambar per soal (dari input file di question-list)
+  document.getElementById('question-list').addEventListener('change', async (e) => {
+    const input = e.target.closest('[data-upload-q-img]');
+    if (!input || !input.files[0]) return;
+    const qId = input.dataset.uploadQImg;
+    try {
+      await apiUpload(`/questions/${qId}/image`, 'image', input.files[0]);
+      toast('Gambar soal diunggah.', 'success');
       renderExamBuilder(examId);
     } catch (err) { toast(err.message, 'error'); }
   });
+}
 
-  content.querySelectorAll('[data-delete-q]').forEach(btn => btn.addEventListener('click', async () => {
-    if (!confirm('Hapus soal ini?')) return;
-    try {
-      await api(`/questions/${btn.dataset.deleteQ}`, { method: 'DELETE' });
-      toast('Soal dihapus.', 'success');
-      renderExamBuilder(examId);
-    } catch (err) { toast(err.message, 'error'); }
-  }));
+function renderQuestionCard(q, idx) {
+  return `
+    <div class="card p-4">
+      <div class="flex justify-between items-start gap-3 mb-3">
+        <p class="font-medium text-sm flex-1">
+          ${idx + 1}. ${escapeHtml(q.question_text)}
+          <span class="text-xs text-slate-400 font-normal ml-1">(bobot ${q.score_weight})</span>
+        </p>
+        <button class="btn btn-danger !py-1 !px-2.5 !text-xs shrink-0" data-delete-q="${q.id}">Hapus</button>
+      </div>
+
+      <!-- Gambar soal -->
+      ${q.image_url
+        ? `<div class="mb-3">
+            <img src="${q.image_url}" alt="Gambar soal" class="max-h-40 rounded-lg border border-slate-200 object-contain bg-slate-50">
+            <div class="flex items-center gap-3 mt-1.5">
+              <label class="text-xs text-slate-500 cursor-pointer hover:text-slate-800 underline">
+                Ganti gambar
+                <input type="file" accept="image/*" data-upload-q-img="${q.id}" class="sr-only">
+              </label>
+              <button class="text-xs text-red-500 hover:underline" data-delete-q-img="${q.id}">Hapus gambar</button>
+            </div>
+          </div>`
+        : `<div class="mb-3">
+            <label class="inline-flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer hover:text-slate-800 border border-dashed border-slate-300 rounded-lg px-3 py-1.5 hover:border-slate-500 transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Tambah gambar soal
+              <input type="file" accept="image/*" data-upload-q-img="${q.id}" class="sr-only">
+            </label>
+          </div>`}
+
+      <!-- Opsi jawaban -->
+      <ul class="space-y-1">
+        ${q.options.map(o => `
+          <li class="flex items-center gap-2 text-sm ${o.is_correct ? 'text-emerald-700 font-semibold' : 'text-slate-600'}">
+            <span class="w-4 h-4 border ${o.is_correct ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300'} inline-block shrink-0"></span>
+            ${escapeHtml(o.option_text)}
+          </li>`).join('')}
+      </ul>
+    </div>`;
 }
 
 /* ---- Pantauan Nilai ---- */

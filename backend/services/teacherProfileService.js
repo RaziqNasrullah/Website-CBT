@@ -5,10 +5,22 @@
  * - Admin isi atas nama guru
  * - profile_completed di-update setelah profil tersimpan
  */
+const path = require('path');
+const fs = require('fs');
+
 const teacherProfileRepository = require('../repositories/teacherProfileRepository');
 const subjectRepository = require('../repositories/subjectRepository');
 const pool = require('../config/db');
 const AppError = require('../utils/AppError');
+
+function deleteFileIfExists(filePath) {
+  if (!filePath) return;
+  // filePath bentuknya '/uploads/profiles/xxx.jpg'
+  const abs = path.join(__dirname, '..', filePath);
+  fs.unlink(abs, (err) => {
+    if (err) console.warn('Tidak bisa hapus file lama:', err.message);
+  });
+}
 
 const teacherProfileService = {
 
@@ -92,6 +104,24 @@ const teacherProfileService = {
 
     const subjects = await teacherProfileRepository.findSubjectsByProfile(profile.id);
     return { ...profile, subjects };
+  },
+
+  // ---- Foto Profil ----
+
+  async updatePhoto(userId, photoUrl) {
+    const profile = await teacherProfileRepository.findByUserId(userId);
+    if (!profile) throw new AppError('Profil tidak ditemukan. Lengkapi profil terlebih dahulu.', 404);
+    // Hapus foto lama dari disk sebelum diganti
+    deleteFileIfExists(profile.photo_url);
+    return teacherProfileRepository.updatePhotoUrl(userId, photoUrl);
+  },
+
+  async removePhoto(userId) {
+    const profile = await teacherProfileRepository.findByUserId(userId);
+    if (!profile) throw new AppError('Profil tidak ditemukan.', 404);
+    if (!profile.photo_url) throw new AppError('Tidak ada foto profil untuk dihapus.', 400);
+    deleteFileIfExists(profile.photo_url);
+    return teacherProfileRepository.clearPhotoUrl(userId);
   },
 
   // ---- Profile Requests ----

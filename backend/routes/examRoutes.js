@@ -3,6 +3,7 @@ const router = express.Router();
 const examController = require('../controllers/examController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const roleMiddleware = require('../middlewares/roleMiddleware');
+const { questionUpload } = require('../middlewares/uploadMiddleware');
 
 // Semua route di bawah wajib login
 router.use(authMiddleware);
@@ -27,5 +28,9 @@ router.post('/exams/:id/questions', roleMiddleware('Guru'), examController.addQu
 // ---- Questions (scoped to question id) ----
 router.put('/questions/:questionId', roleMiddleware('Guru'), examController.updateQuestion);
 router.delete('/questions/:questionId', roleMiddleware('Guru'), examController.deleteQuestion);
+
+// ---- Question Image ----
+router.post('/questions/:questionId/image', roleMiddleware('Guru'), questionUpload, examController.uploadQuestionImage);
+router.delete('/questions/:questionId/image', roleMiddleware('Guru'), examController.deleteQuestionImage);
 
 module.exports = router;

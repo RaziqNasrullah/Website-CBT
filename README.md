@@ -2,6 +2,8 @@
 
 Aplikasi CBT lokal berbasis arsitektur REST API Monolitik Tiga-Lapis (Express + MySQL + Vanilla JS Mini-SPA).
 
+> **Lanjut kerja di project ini di chat/sesi baru?** Baca urutan: `HANDOFF.md` → `CONTEXT.md` → `PLAN.md` → `architecture.md`, sebelum baca detail cara jalanin di bawah ini.
+
 ## Cara Menjalankan (XAMPP)
 
 1. **Nyalakan MySQL** di XAMPP Control Panel (modul Apache tidak wajib, server Node.js sendiri yang menyajikan frontend).
@@ -55,7 +57,7 @@ Sesuai `.env` (`DEFAULT_ADMIN_USERNAME` / `DEFAULT_ADMIN_PASSWORD`), default:
    - Calon user memasukkan OTP di halaman verifikasi. Bisa **kirim ulang OTP** setelah **3 menit** jika belum masuk/kedaluwarsa.
    - Setelah OTP benar, akun berpindah status `unverified` → `pending`, dan baru muncul di antrian approval Admin.
    - Admin **menyetujui (approve)** akun dari dashboard Admin. Login hanya bisa dilakukan setelah status `approved`.
-3. Login sebagai Guru → buat ujian baru (isi **Nilai Minimal Lulus**) → tambah soal pilihan ganda.
+3. Login sebagai Guru → buat ujian baru (isi **Nilai Minimal Lulus**) → tambah soal pilihan ganda (bisa disertai **gambar soal**, opsional). Guru juga bisa mengunggah **foto profil** dari dashboard.
 4. Login sebagai Siswa → kerjakan ujian. Jika nilai di bawah passing grade, tombol berubah jadi **"Ulangi Ujian (Remedial)"**.
 5. Guru bisa memantau nilai tertinggi & **jumlah percobaan (attempt count)** tiap siswa di menu "Nilai" pada setiap ujian.
 
@@ -104,6 +106,12 @@ Admin bisa hapus akun Guru/Siswa dari dashboard. Beberapa aturan menjaga integri
 - **Guru yang masih punya ujian tidak bisa dihapus** — sistem akan menolak dengan pesan jelas ("masih memiliki N ujian"). Hapus/alihkan ujian tersebut dulu.
 - Menghapus **siswa**: seluruh riwayat attempt & jawaban miliknya ikut terhapus otomatis.
 - Menghapus akun yang pernah **meng-assign ujian ke siswa** (`assigned_by`): assignment ke siswa tetap ada (siswa tidak kehilangan akses ujian), hanya info "siapa yang meng-assign" yang hilang.
+
+## Upload File (Foto Profil & Gambar Soal)
+
+- Foto profil guru dan gambar soal disimpan di `backend/uploads/` (dibuat otomatis, di-serve statis lewat `/uploads/...`) dan **tidak di-commit ke git** (lihat `.gitignore`).
+- Dibatasi tipe gambar (JPEG/PNG/GIF/WebP) dan ukuran maksimal **5 MB** per file (lihat `backend/middlewares/uploadMiddleware.js`).
+- File lama otomatis dihapus dari disk saat diganti atau saat soal/foto dihapus.
 
 ## Troubleshooting Email OTP
 

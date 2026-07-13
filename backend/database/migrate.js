@@ -77,6 +77,7 @@ async function migrate() {
       exam_id       INT NOT NULL,
       question_text TEXT NOT NULL,
       score_weight  DECIMAL(5,2) NOT NULL DEFAULT 1,
+      image_url     VARCHAR(500) NULL,
       CONSTRAINT fk_questions_exam FOREIGN KEY (exam_id) REFERENCES exams(id) ON DELETE CASCADE
     ) ENGINE=InnoDB;
 
@@ -149,6 +150,7 @@ async function migrate() {
       nomor_induk VARCHAR(50)  NOT NULL UNIQUE,
       address     TEXT         NOT NULL,
       phone       VARCHAR(30)  NOT NULL,
+      photo_url   VARCHAR(500) NULL,
       created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       CONSTRAINT fk_tp_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -196,6 +198,22 @@ async function migrate() {
   await conn.query(`
     ALTER TABLE users
       ADD COLUMN IF NOT EXISTS profile_completed TINYINT(1) NOT NULL DEFAULT 0;
+  `).catch(err => {
+    if (!/Duplicate column/i.test(err.message)) throw err;
+  });
+
+  // ----------------------------------------------------------------
+  // ALTER: fitur upload (gambar soal & foto profil guru), safe re-run
+  // ----------------------------------------------------------------
+  await conn.query(`
+    ALTER TABLE questions
+      ADD COLUMN IF NOT EXISTS image_url VARCHAR(500) NULL;
+  `).catch(err => {
+    if (!/Duplicate column/i.test(err.message)) throw err;
+  });
+  await conn.query(`
+    ALTER TABLE teacher_profiles
+      ADD COLUMN IF NOT EXISTS photo_url VARCHAR(500) NULL;
   `).catch(err => {
     if (!/Duplicate column/i.test(err.message)) throw err;
   });

@@ -63,6 +63,16 @@ const questionRepository = {
     return this.findById(id);
   },
 
+  async updateImageUrl(id, imageUrl) {
+    await pool.execute('UPDATE questions SET image_url = ? WHERE id = ?', [imageUrl, id]);
+    return this.findById(id);
+  },
+
+  async clearImageUrl(id) {
+    await pool.execute('UPDATE questions SET image_url = NULL WHERE id = ?', [id]);
+    return this.findById(id);
+  },
+
   async deleteById(id) {
     const [result] = await pool.execute('DELETE FROM questions WHERE id = ?', [id]);
     return result;

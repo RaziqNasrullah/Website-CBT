@@ -57,6 +57,7 @@ const examAssignmentRepository = {
          u.id AS teacher_id,
          u.name AS teacher_name,
          tp.full_name AS teacher_full_name,
+         tp.photo_url,
          GROUP_CONCAT(DISTINCT subj.subject_name ORDER BY subj.subject_name SEPARATOR ', ') AS subjects
        FROM exam_assignments ea
        JOIN exams e ON e.id = ea.exam_id
@@ -65,7 +66,7 @@ const examAssignmentRepository = {
        LEFT JOIN teacher_subjects tsubj ON tsubj.teacher_profile_id = tp.id
        LEFT JOIN subjects subj ON subj.id = tsubj.subject_id
        WHERE ea.student_id = ?
-       GROUP BY u.id, u.name, tp.full_name
+       GROUP BY u.id, u.name, tp.full_name, tp.photo_url
        ORDER BY COALESCE(tp.full_name, u.name) ASC`,
       [studentId]
     );

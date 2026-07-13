@@ -148,6 +148,7 @@ function renderTeacherCard(teacher) {
   const subjects   = teacher.subjects || '—';
   const pending    = teacher.pending_count || 0;
   const total      = teacher.total_exams || 0;
+  const hasPhoto   = !!teacher.photo_url;
 
   return `
     <div data-teacher-id="${teacher.teacher_id}"
@@ -159,9 +160,11 @@ function renderTeacherCard(teacher) {
         <!-- Decorative circle -->
         <div class="absolute -right-6 -top-6 w-32 h-32 rounded-full opacity-20 bg-white"></div>
         <div class="absolute -right-2 -bottom-8 w-24 h-24 rounded-full opacity-10 bg-white"></div>
-        <!-- Initials badge top-right -->
-        <div class="absolute top-3 right-3 w-10 h-10 rounded-full bg-white/25 backdrop-blur-sm flex items-center justify-center">
-          <span class="text-white text-sm font-bold">${ini}</span>
+        <!-- Foto atau inisial di kanan atas -->
+        <div class="absolute top-3 right-3 w-10 h-10 rounded-full overflow-hidden border-2 border-white/40 bg-white/25 backdrop-blur-sm flex items-center justify-center">
+          ${hasPhoto
+            ? `<img src="${teacher.photo_url}" alt="${escapeHtml(displayName)}" class="w-full h-full object-cover">`
+            : `<span class="text-white text-sm font-bold">${ini}</span>`}
         </div>
         <!-- Teacher name bottom-left -->
         <div class="absolute bottom-3 left-4 right-14">
@@ -213,6 +216,7 @@ export async function renderTeacherView(teacherId) {
   const exams = allExams.filter(e => String(e.teacher_id) === String(teacherId));
   const color  = cardColor(teacher.teacher_name);
   const ini    = initials(teacher.teacher_full_name || teacher.teacher_name);
+  const hasPhoto = !!teacher.photo_url;
 
   const upcoming = exams.filter(e =>
     e.exam_status === 'belum_dikerjakan' ||
@@ -230,8 +234,10 @@ export async function renderTeacherView(teacherId) {
         <div class="absolute right-20 -bottom-16 w-48 h-48 rounded-full bg-white opacity-10"></div>
         <div class="max-w-5xl mx-auto px-6 h-full flex items-end pb-6">
           <div class="flex items-end gap-4">
-            <div class="w-14 h-14 rounded-2xl bg-white/25 flex items-center justify-center shrink-0 mb-0.5">
-              <span class="text-white text-xl font-bold">${ini}</span>
+            <div class="w-14 h-14 rounded-2xl overflow-hidden border-2 border-white/40 bg-white/25 flex items-center justify-center shrink-0 mb-0.5">
+              ${hasPhoto
+                ? `<img src="${teacher.photo_url}" alt="${escapeHtml(teacher.teacher_full_name || teacher.teacher_name)}" class="w-full h-full object-cover">`
+                : `<span class="text-white text-xl font-bold">${ini}</span>`}
             </div>
             <div>
               <h1 class="text-white text-2xl md:text-3xl font-bold leading-tight">
@@ -459,6 +465,14 @@ export async function renderExamTake(attemptId) {
                       style="background-color:${color};">${idx + 1}</span>
                 ${escapeHtml(q.question_text)}
               </p>
+
+              <!-- Gambar soal (jika ada) -->
+              ${q.image_url ? `
+                <div class="mb-4 rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
+                  <img src="${q.image_url}" alt="Gambar soal ${idx + 1}"
+                    class="w-full max-h-72 object-contain">
+                </div>` : ''}
+
               <div class="space-y-2">
                 ${q.options.map((o, oi) => `
                   <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer

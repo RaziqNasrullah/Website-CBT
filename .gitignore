@@ -6,6 +6,11 @@ node_modules/
 .env.*
 !.env.example
 
+# Konteks Developer
+CONTEXT.md
+HANDOFF.md
+PLAN.md
+
 # Lock file (sengaja tidak diupload, sesuai kebutuhan repo saat ini)
 package-lock.json
 

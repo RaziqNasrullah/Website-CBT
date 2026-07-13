@@ -4,6 +4,7 @@
  */
 const teacherProfileService = require('../services/teacherProfileService');
 const asyncHandler = require('../utils/asyncHandler');
+const AppError = require('../utils/AppError');
 
 const teacherProfileController = {
   // GET /api/profile/me — guru ambil profilnya sendiri
@@ -23,6 +24,24 @@ const teacherProfileController = {
       message: 'Profil berhasil disimpan.',
       data: profile,
     });
+  }),
+
+  // POST /api/profile/photo — multipart, field: photo
+  uploadPhoto: asyncHandler(async (req, res) => {
+    if (!req.file) throw new AppError('File foto tidak ditemukan.', 400);
+    const photoUrl = `/uploads/profiles/${req.file.filename}`;
+    const profile = await teacherProfileService.updatePhoto(req.user.id, photoUrl);
+    res.status(200).json({
+      success: true,
+      message: 'Foto profil diperbarui.',
+      data: { photo_url: photoUrl, profile },
+    });
+  }),
+
+  // DELETE /api/profile/photo
+  removePhoto: asyncHandler(async (req, res) => {
+    await teacherProfileService.removePhoto(req.user.id);
+    res.status(200).json({ success: true, message: 'Foto profil dihapus.' });
   }),
 
   // GET /api/profile/request/me — guru cek status request miliknya

@@ -13,7 +13,11 @@ CBT/
 ├── architecture.md                     # Dokumen ini
 │
 ├── backend/
-│   ├── server.js                       # Entry point Express (mount routes, error handler)
+│   ├── server.js                       # Entry point Express (mount routes, static /uploads, error handler)
+│   │
+│   ├── uploads/                        # File hasil upload (foto profil, gambar soal) - runtime, di-gitignore
+│   │   ├── profiles/
+│   │   └── questions/
 │   │
 │   ├── config/
 │   │   └── db.js                       # Koneksi MySQL (connection pool, mysql2)
@@ -26,7 +30,7 @@ CBT/
 │   │   ├── userRepository.js           # CRUD user, OTP (setOtp/markEmailVerified), findByEmail
 │   │   ├── examRepository.js
 │   │   ├── examAssignmentRepository.js # Assignment ujian -> siswa (siapa yang meng-assign, dsb.)
-│   │   ├── questionRepository.js
+│   │   ├── questionRepository.js       # + updateImageUrl/clearImageUrl (gambar soal)
 │   │   ├── attemptRepository.js
 │   │   ├── subjectRepository.js
 │   │   ├── teacherProfileRepository.js
@@ -37,24 +41,25 @@ CBT/
 │   │   ├── authService.js              # register (kirim OTP), verifyOtp, resendOtp, login, approval guard
 │   │   ├── emailService.js             # Kirim email OTP via SMTP Gmail (nodemailer)
 │   │   ├── userService.js              # Approve/reject/delete user (+ guard FK: guru dgn ujian aktif)
-│   │   ├── examService.js              # CRUD ujian & soal
+│   │   ├── examService.js              # CRUD ujian & soal + setQuestionImage/removeQuestionImage
 │   │   ├── assignmentService.js        # Assign ujian ke siswa
 │   │   ├── attemptService.js           # Logic remedial, attempt counter, scoring
-│   │   ├── teacherProfileService.js
+│   │   ├── teacherProfileService.js    # + updatePhoto/removePhoto (foto profil)
 │   │   └── studentProfileService.js
 │   │
 │   ├── controllers/                    # === CONTROLLER LAYER (HTTP req/res) ===
 │   │   ├── authController.js           # /auth/register, /auth/verify-otp, /auth/resend-otp, /auth/login
 │   │   ├── userController.js
-│   │   ├── examController.js
+│   │   ├── examController.js           # + uploadQuestionImage/deleteQuestionImage
 │   │   ├── assignmentController.js
 │   │   ├── attemptController.js
-│   │   ├── teacherProfileController.js
+│   │   ├── teacherProfileController.js # + uploadPhoto/removePhoto
 │   │   └── studentProfileController.js
 │   │
 │   ├── middlewares/
 │   │   ├── authMiddleware.js           # Verifikasi JWT
 │   │   ├── roleMiddleware.js           # Guard per-role (Admin/Guru/Siswa)
+│   │   ├── uploadMiddleware.js         # Multer: profileUpload (foto guru), questionUpload (gambar soal)
 │   │   └── errorHandler.js             # Global error handler (AppError -> response JSON)
 │   │
 │   ├── routes/
@@ -76,7 +81,7 @@ CBT/
     └── js/
         ├── main.js                     # Bootstrap app, cek sesi, mount router
         ├── core/
-        │   ├── api.js                  # Wrapper fetch ke backend (auto-attach JWT, handle error)
+        │   ├── api.js                  # Wrapper fetch ke backend (+ apiUpload untuk multipart/file)
         │   ├── router.js               # Hash-based router (termasuk route berparameter, mis. #verify-otp/<username>)
         │   ├── store.js                # Sesi login (token + user) di localStorage
         │   ├── dom.js                  # Helper render/manipulasi DOM
@@ -86,8 +91,8 @@ CBT/
         └── views/
             ├── auth.js                 # Login, Register, Verifikasi OTP
             ├── admin.js                # Dashboard Admin (approval user, kelola subject)
-            ├── guru.js                 # Dashboard Guru (kelola ujian/soal, nilai siswa)
-            ├── siswa.js                # Dashboard Siswa (kerjakan ujian)
+            ├── guru.js                 # Dashboard Guru (ujian/soal + gambar soal, nilai siswa, foto profil)
+            ├── siswa.js                # Dashboard Siswa (kerjakan ujian, lihat gambar soal & foto guru)
             └── profile.js              # Lengkapi profil (guru/siswa)
 ```
 
@@ -145,11 +150,25 @@ Tabel utama & relasi penting (lihat `backend/database/migrate.js` untuk DDL leng
   `otp_code`, `otp_expires_at`, `otp_last_sent_at`, `email_verified`)
 - **subjects** — mata pelajaran (dibuat Admin)
 - **exams** — ujian (dimiliki oleh `teacher_id`, punya `passing_grade`)
-- **questions** / **question_options** — soal pilihan ganda per ujian
+- **questions** / **question_options** — soal pilihan ganda per ujian (`questions.image_url` untuk gambar soal, opsional)
 - **exam_assignments** — penugasan ujian ke siswa (`student_id`, `assigned_by`)
 - **exam_attempts** / **student_answers** — riwayat pengerjaan & jawaban siswa
-- **teacher_profiles** / **student_profiles** — data profil tambahan
+- **teacher_profiles** / **student_profiles** — data profil tambahan (`teacher_profiles.photo_url` untuk foto profil, opsional)
 - **teacher_students** — relasi guru-siswa (mis. per kelas)
+
+## Upload File (Foto Profil & Gambar Soal)
+
+```
+POST   /api/profile/photo           (Guru, multipart field: photo)   -> unggah/ganti foto profil
+DELETE /api/profile/photo           (Guru)                           -> hapus foto profil
+POST   /api/questions/:id/image     (Guru, multipart field: image)   -> unggah/ganti gambar soal
+DELETE /api/questions/:id/image     (Guru)                           -> hapus gambar soal
+```
+
+- Ditangani `backend/middlewares/uploadMiddleware.js` (Multer): validasi tipe file (JPEG/PNG/GIF/WebP) & ukuran maks 5MB, simpan ke `backend/uploads/profiles/` atau `backend/uploads/questions/`.
+- File disajikan statis lewat `express.static` di `backend/server.js` (prefix `/uploads`).
+- Saat foto/gambar diganti atau dihapus, file lama di disk otomatis dibersihkan (`deleteFileIfExists` di masing-masing service).
+- Folder `backend/uploads/` di-gitignore (runtime data, bukan kode) — pastikan folder ini ada saat deploy (dibuat otomatis oleh `uploadMiddleware.js` jika belum ada).
 
 ### Kebijakan FK saat user dihapus (hard delete)
 

@@ -3,6 +3,9 @@
  * Business Logic Layer - CRUD ujian, soal, dan opsi jawaban (async/await, MySQL).
  * Validasi kepemilikan (hanya Guru pembuat ujian yang boleh mengubah/menghapus).
  */
+const path = require('path');
+const fs = require('fs');
+
 const examRepository = require('../repositories/examRepository');
 const questionRepository = require('../repositories/questionRepository');
 const subjectRepository = require('../repositories/subjectRepository');
@@ -15,6 +18,14 @@ function ensureOwnership(exam, teacherId) {
   if (Number(exam.teacher_id) !== Number(teacherId)) {
     throw new AppError('Anda tidak memiliki akses untuk mengubah ujian ini.', 403);
   }
+}
+
+function deleteFileIfExists(filePath) {
+  if (!filePath) return;
+  const abs = path.join(__dirname, '..', filePath);
+  fs.unlink(abs, (err) => {
+    if (err) console.warn('Tidak bisa hapus file lama:', err.message);
+  });
 }
 
 const examService = {
@@ -192,8 +203,31 @@ const examService = {
     }
     const exam = await examRepository.findById(question.exam_id);
     ensureOwnership(exam, teacherId);
+    // Hapus gambar soal dari disk jika ada, sebelum baris DB-nya dihapus
+    deleteFileIfExists(question.image_url);
     await questionRepository.deleteById(questionId);
     return { message: 'Pertanyaan berhasil dihapus.' };
+  },
+
+  // ---- Question Image ----
+  async setQuestionImage(questionId, teacherId, imageUrl) {
+    const question = await questionRepository.findById(questionId);
+    if (!question) throw new AppError('Pertanyaan tidak ditemukan.', 404);
+    const exam = await examRepository.findById(question.exam_id);
+    ensureOwnership(exam, teacherId);
+    // Hapus gambar lama dari disk sebelum diganti
+    deleteFileIfExists(question.image_url);
+    return questionRepository.updateImageUrl(questionId, imageUrl);
+  },
+
+  async removeQuestionImage(questionId, teacherId) {
+    const question = await questionRepository.findById(questionId);
+    if (!question) throw new AppError('Pertanyaan tidak ditemukan.', 404);
+    const exam = await examRepository.findById(question.exam_id);
+    ensureOwnership(exam, teacherId);
+    if (!question.image_url) throw new AppError('Tidak ada gambar pada soal ini.', 400);
+    deleteFileIfExists(question.image_url);
+    return questionRepository.clearImageUrl(questionId);
   },
 };
 

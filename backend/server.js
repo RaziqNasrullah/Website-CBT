@@ -22,6 +22,9 @@ app.use(express.urlencoded({ extended: true }));
 // Sajikan frontend Mini-SPA (Vanilla JS) secara statis
 app.use(express.static(path.join(__dirname, '../frontend')));
 
+// Sajikan file upload (foto profil, gambar soal) sebagai static
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Healthcheck (didaftarkan sebelum router lain agar tidak ikut tertahan authMiddleware)
 app.get('/api/health', (req, res) => {
   res.status(200).json({ success: true, message: 'CBT App API berjalan normal.' });

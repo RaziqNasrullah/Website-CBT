@@ -28,3 +28,32 @@ export async function api(path, { method = 'GET', body, auth = true } = {}) {
   }
   return data.data;
 }
+
+/**
+ * apiUpload(path, fieldName, file)
+ * Upload satu file via multipart/form-data ke backend.
+ * Dipakai untuk upload foto profil dan gambar soal.
+ */
+export async function apiUpload(path, fieldName, file) {
+  const formData = new FormData();
+  formData.append(fieldName, file);
+
+  const res = await fetch(`/api${path}`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${Store.token}` },
+    body: formData,
+  });
+
+  let data;
+  try {
+    data = await res.json();
+  } catch (e) {
+    data = { success: false, message: 'Respon server tidak valid.' };
+  }
+
+  if (!res.ok || !data.success) {
+    if (res.status === 401) Store.clear();
+    throw new Error(data.message || 'Upload gagal.');
+  }
+  return data.data;
+}
